@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import { GamePhase, EndingType, SideEffect } from '@roguegpt/engine';
 import { useGame } from './hooks/useGame.js';
@@ -32,26 +32,34 @@ export function App() {
   const [showTimer, setShowTimer] = useState(true);
   const [flashActive, setFlashActive] = useState(false);
   const [screenShake, setScreenShake] = useState(false);
+  const processedEffectsRef = useRef<SideEffect[] | null>(null);
 
-  // Handle side effects from the engine
-  useEffect(() => {
-    if (sideEffects.length === 0) return;
-
+  // Handle side effects — only process each batch once
+  if (sideEffects.length > 0 && sideEffects !== processedEffectsRef.current) {
+    processedEffectsRef.current = sideEffects;
     for (const effect of sideEffects) {
-      switch (effect.type) {
-        case 'flash':
-          setFlashActive(true);
-          setTimeout(() => setFlashActive(false), 300);
-          break;
-        case 'screenShake':
-          setScreenShake(true);
-          setTimeout(() => setScreenShake(false), effect.duration);
-          break;
-        default:
-          break;
+      if (effect.type === 'flash') {
+        setFlashActive(true);
+      }
+      if (effect.type === 'screenShake') {
+        setScreenShake(true);
       }
     }
-  }, [sideEffects]);
+  }
+
+  // Auto-clear flash after 1.5 seconds
+  useEffect(() => {
+    if (!flashActive) return;
+    const timer = setTimeout(() => setFlashActive(false), 1500);
+    return () => clearTimeout(timer);
+  }, [flashActive]);
+
+  // Auto-clear screen shake after 500ms
+  useEffect(() => {
+    if (!screenShake) return;
+    const timer = setTimeout(() => setScreenShake(false), 500);
+    return () => clearTimeout(timer);
+  }, [screenShake]);
 
   // Global key handler for settings toggle and end-game actions
   useInput(

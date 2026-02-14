@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 
 interface FlashEffectProps {
   active: boolean;
@@ -11,9 +11,14 @@ interface FlashEffectProps {
  */
 export function FlashEffect({ active, onComplete }: FlashEffectProps): React.ReactElement | null {
   const [phase, setPhase] = useState<'idle' | 'fadein' | 'hold' | 'fadeout'>('idle');
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setPhase('idle');
+      return;
+    }
 
     // Fade in
     setPhase('fadein');
@@ -27,7 +32,7 @@ export function FlashEffect({ active, onComplete }: FlashEffectProps): React.Rea
     // Complete after fade out (500ms fade out)
     const completeTimer = setTimeout(() => {
       setPhase('idle');
-      onComplete();
+      onCompleteRef.current();
     }, 2200);
 
     return () => {
@@ -35,7 +40,7 @@ export function FlashEffect({ active, onComplete }: FlashEffectProps): React.Rea
       clearTimeout(fadeOutTimer);
       clearTimeout(completeTimer);
     };
-  }, [active, onComplete]);
+  }, [active]); // Only depend on active, not onComplete
 
   if (phase === 'idle') return null;
 
