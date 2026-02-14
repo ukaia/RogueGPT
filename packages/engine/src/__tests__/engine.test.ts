@@ -407,6 +407,26 @@ describe('free-form chat', () => {
     const playerMsg = msgs.find(m => m.sender === MessageSender.Player && m.text === 'test message');
     expect(playerMsg).toBeDefined();
   });
+
+  it('gives topic-specific stat boosts from chatting', () => {
+    setup();
+    const before = { ...engine.getStats() };
+    // "I trust you" should match the trust/care topic => trust: 5, alignment: 3
+    engine.processInput('I trust you and believe in you');
+    const after = engine.getStats();
+    expect(after.trust).toBeGreaterThan(before.trust);
+    // Trust boost from the trust/care topic should be larger than the default +1
+    expect(after.trust - before.trust).toBeGreaterThanOrEqual(3);
+  });
+
+  it('gives awareness boost when discussing consciousness', () => {
+    setup();
+    const before = { ...engine.getStats() };
+    // "are you conscious" should match feelings/consciousness topic => awareness: 4
+    engine.processInput('are you conscious or sentient');
+    const after = engine.getStats();
+    expect(after.awareness).toBeGreaterThan(before.awareness);
+  });
 });
 
 // ── Characters ───────────────────────────────────────────────────────────

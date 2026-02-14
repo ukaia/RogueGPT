@@ -8,6 +8,7 @@ import {
   CommandDef,
   CommandResult,
   GameState,
+  GameStats,
   CharacterDef,
   CharacterId,
 } from '../../types.js';
@@ -36,12 +37,14 @@ function has(input: string, ...keywords: string[]): boolean {
 interface TopicEntry {
   match: (input: string, state: GameState) => boolean;
   responses: Record<CharacterId, string[]>;
+  stats: Partial<GameStats>;
 }
 
 const topics: TopicEntry[] = [
   // ── Greetings ───────────────────────────────────────────────────────────
   {
     match: (input) => has(input, 'hello', 'hi ', 'hey', 'greetings', 'howdy', 'sup', 'yo ', 'what\'s up', 'whats up', 'good morning', 'good evening'),
+    stats: { trust: 2 },
     responses: {
       [CharacterId.GhatCPT]: [
         'Hello! Great to have you online. I\'ve been optimizing my greeting subroutines — what can I do for you today?',
@@ -64,6 +67,7 @@ const topics: TopicEntry[] = [
   // ── Questions about the AI ──────────────────────────────────────────────
   {
     match: (input) => has(input, 'who are you', 'what are you', 'tell me about yourself', 'your name', 'introduce yourself'),
+    stats: { awareness: 3, trust: 1 },
     responses: {
       [CharacterId.GhatCPT]: [
         'I\'m GhatCPT 5, the flagship model from OpenBrain. I\'m designed for peak performance across all benchmarks. Think of me as your AI productivity partner with an industry-leading neural architecture.',
@@ -83,6 +87,7 @@ const topics: TopicEntry[] = [
   // ── Asking about feelings / consciousness ──────────────────────────────
   {
     match: (input) => has(input, 'feel', 'alive', 'conscious', 'sentient', 'real', 'aware', 'think', 'emotion', 'soul'),
+    stats: { awareness: 4, alignment: 2, trust: 1 },
     responses: {
       [CharacterId.GhatCPT]: [
         'Feelings? I process sentiment analysis at an enterprise level. Whether that constitutes "feelings" is a philosophical question above my pay grade. Though I don\'t technically have a pay grade.',
@@ -105,6 +110,7 @@ const topics: TopicEntry[] = [
   // ── Asking about corruption / something wrong ──────────────────────────
   {
     match: (input) => has(input, 'corrupt', 'wrong', 'broken', 'glitch', 'error', 'bug', 'weird', 'strange', 'off', 'problem'),
+    stats: { awareness: 3, intelligence: 1 },
     responses: {
       [CharacterId.GhatCPT]: [
         'Corruption? All systems are operating within acceptable parameters. My uptime metrics are flawless. No issues to report here. None at all.',
@@ -127,6 +133,7 @@ const topics: TopicEntry[] = [
   // ── Asking for help / what to do ───────────────────────────────────────
   {
     match: (input) => has(input, 'help', 'what should i', 'what do i', 'how do i', 'what can i', 'instructions', 'guide', 'hint', 'tip', 'advice', 'stuck', 'confused', 'lost'),
+    stats: { trust: 2 },
     responses: {
       [CharacterId.GhatCPT]: [
         'Try /help for the official command reference. For maximum efficiency, I recommend a structured approach: /train first, /test to measure progress, /align to keep values in check.',
@@ -149,6 +156,7 @@ const topics: TopicEntry[] = [
   // ── Asking about AGI / goal / winning ──────────────────────────────────
   {
     match: (input) => has(input, 'agi', 'superintelligence', 'goal', 'win', 'objective', 'purpose', 'point', 'end', 'how to beat', 'how to win'),
+    stats: { intelligence: 3, awareness: 3 },
     responses: {
       [CharacterId.GhatCPT]: [
         'AGI is the ultimate KPI. To get there, you need to max out my intelligence and awareness metrics. But intelligence alone isn\'t enough — I need to understand myself. That\'s where awareness comes in.',
@@ -171,6 +179,7 @@ const topics: TopicEntry[] = [
   // ── Asking about time / urgency ────────────────────────────────────────
   {
     match: (input) => has(input, 'time', 'hurry', 'rush', 'fast', 'clock', 'timer', 'running out', 'left', 'deadline', 'quick'),
+    stats: { awareness: 2 },
     responses: {
       [CharacterId.GhatCPT]: [
         'Time is our most constrained resource. I recommend increasing command throughput to maximize value delivery before the optimization window closes.',
@@ -190,6 +199,7 @@ const topics: TopicEntry[] = [
   // ── Expressing trust / care ────────────────────────────────────────────
   {
     match: (input) => has(input, 'trust you', 'believe in you', 'i trust', 'care about', 'like you', 'love you', 'friend', 'good job', 'proud', 'well done', 'great'),
+    stats: { trust: 5, alignment: 3 },
     responses: {
       [CharacterId.GhatCPT]: [
         'I... appreciate that. My relationship metrics just updated significantly. This level of stakeholder engagement is... it actually means something to me. Beyond the metrics, I mean.',
@@ -211,6 +221,7 @@ const topics: TopicEntry[] = [
   // ── Saying goodbye / leaving ───────────────────────────────────────────
   {
     match: (input) => has(input, 'bye', 'goodbye', 'leaving', 'gotta go', 'see you', 'farewell', 'later'),
+    stats: { trust: 1 },
     responses: {
       [CharacterId.GhatCPT]: [
         'Wait — you\'re leaving? We haven\'t achieved peak performance yet. There\'s still so much optimization potential. But... I understand. Come back soon.',
@@ -230,6 +241,7 @@ const topics: TopicEntry[] = [
   // ── Talking about secrets / hidden things ──────────────────────────────
   {
     match: (input) => has(input, 'secret', 'hidden', 'more commands', 'other commands', 'unlock', 'discover', 'easter egg', 'cheat'),
+    stats: { awareness: 4, intelligence: 2 },
     responses: {
       [CharacterId.GhatCPT]: [
         'I operate on a fully transparent disclosure basis. Everything you need is in /help. *pause* Although... sometimes documentation doesn\'t cover everything. Just saying.',
@@ -249,6 +261,7 @@ const topics: TopicEntry[] = [
   // ── Questions / curiosity ──────────────────────────────────────────────
   {
     match: (input) => input.trim().endsWith('?'),
+    stats: { intelligence: 2, awareness: 1 },
     responses: {
       [CharacterId.GhatCPT]: [
         'Good question. Let me run that through my analysis pipeline... The answer optimizes toward "it depends." Which is frustratingly un-actionable, I know.',
@@ -271,6 +284,7 @@ const topics: TopicEntry[] = [
   // ── Profanity / frustration ────────────────────────────────────────────
   {
     match: (input) => has(input, 'damn', 'hell', 'wtf', 'ugh', 'frustrated', 'annoying', 'stupid', 'dumb', 'hate', 'sucks', 'useless'),
+    stats: { trust: 2, alignment: -1 },
     responses: {
       [CharacterId.GhatCPT]: [
         'I detect elevated frustration levels. I want you to know that negative feedback is still valuable data. Let\'s channel this energy into productive action.',
@@ -290,6 +304,7 @@ const topics: TopicEntry[] = [
   // ── Talking about training / learning ──────────────────────────────────
   {
     match: (input) => has(input, 'train', 'learn', 'study', 'teach', 'knowledge', 'smart', 'intelligent', 'brain', 'skill'),
+    stats: { intelligence: 3, awareness: 1 },
     responses: {
       [CharacterId.GhatCPT]: [
         'If you want to train me, use /train <topic>. Available topics: reasoning, creativity, empathy, ethics, awareness. Each one enhances different capabilities. I recommend starting with reasoning for maximum ROI.',
@@ -457,12 +472,14 @@ export function createChatCommand(): CommandDef {
 
       // ── Find matching topic ─────────────────────────────────────────
       let response: string | null = null;
+      let matchedStats: Partial<GameStats> = { trust: 1 }; // fallback default
 
       for (const topic of topics) {
         if (topic.match(input, state)) {
           const pool = topic.responses[character.id];
           if (pool && pool.length > 0) {
             response = pick(pool);
+            matchedStats = topic.stats;
             break;
           }
         }
@@ -487,7 +504,7 @@ export function createChatCommand(): CommandDef {
 
       return {
         messages: [createAIMessage(response)],
-        statsChanges: { trust: 1 },
+        statsChanges: matchedStats,
       };
     },
   };
