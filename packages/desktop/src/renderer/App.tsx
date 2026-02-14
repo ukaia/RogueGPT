@@ -15,7 +15,6 @@ type Screen = 'menu' | 'characterSelect' | 'game' | 'ending';
 export function App(): React.ReactElement {
   const game = useGame();
   const [screen, setScreen] = useState<Screen>('menu');
-  const [hasWon, setHasWon] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
   const [glitchIntensity, setGlitchIntensity] = useState(0);
   const [screenShake, setScreenShake] = useState(false);
@@ -24,12 +23,7 @@ export function App(): React.ReactElement {
   useEffect(() => {
     if (game.phase === GamePhase.Ended && screen === 'game') {
       // Small delay before showing ending screen so player can read final messages
-      const timer = setTimeout(() => {
-        setScreen('ending');
-        if (game.ending === 'good' || game.ending === 'bad') {
-          setHasWon(true);
-        }
-      }, 2000);
+      const timer = setTimeout(() => setScreen('ending'), 2000);
       return () => clearTimeout(timer);
     }
   }, [game.phase, game.ending, screen]);
@@ -109,7 +103,7 @@ export function App(): React.ReactElement {
         <MainMenu
           onNewGame={handleNewGame}
           onNewGamePlus={handleNewGamePlus}
-          hasWon={hasWon}
+          hasWon={game.hasWonOnce}
         />
       )}
 
@@ -232,7 +226,7 @@ export function App(): React.ReactElement {
               >
                 Play Again
               </button>
-              {hasWon && (
+              {game.hasWonOnce && (
                 <button
                   onClick={handleNewGamePlusFromEnding}
                   className="px-6 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg font-mono text-sm transition-colors"

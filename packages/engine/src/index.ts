@@ -39,3 +39,7 @@ export { corruptText } from './corruption/effects.js';
 
 // ── Commands ────────────────────────────────────────────────────────────────
 export { CommandRegistry, createAIMessage, createSystemMessage, createPlayerMessage } from './commands/CommandRegistry.js';
+
+// ── Persistence ─────────────────────────────────────────────────────────────
+export { SaveManager, createDefaultSaveData } from './persistence/SaveManager.js';
+export type { SaveData, CharacterRecord } from './types.js';

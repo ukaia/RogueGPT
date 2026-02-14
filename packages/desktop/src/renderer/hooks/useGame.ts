@@ -7,10 +7,31 @@ import {
   MessageSender,
   corruptText,
   getCharacter,
+  SaveManager,
+  createDefaultSaveData,
   type ChatMessage,
   type GameStats,
   type SideEffect,
+  type SaveData,
 } from '@roguegpt/engine';
+
+// ── localStorage-based persistence ──────────────────────────────────────────
+
+const SAVE_KEY = 'roguegpt-save';
+
+function loadSaveData(): SaveData {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) return JSON.parse(raw) as SaveData;
+  } catch { /* ignore */ }
+  return createDefaultSaveData();
+}
+
+function persistSaveData(data: SaveData): void {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch { /* ignore */ }
+}
 
 export interface UseGameReturn {
   /** Current game phase */
@@ -31,6 +52,8 @@ export interface UseGameReturn {
   ending: EndingType | null;
   /** Whether this is a New Game+ run */
   isNewGamePlus: boolean;
+  /** Whether the player has achieved the good ending at least once */
+  hasWonOnce: boolean;
 
   /** Select a character and begin playing */
   selectCharacter: (id: CharacterId) => void;
@@ -46,12 +69,17 @@ export interface UseGameReturn {
 
 export function useGame(): UseGameReturn {
   const engineRef = useRef<GameEngine | null>(null);
+  const saveRef = useRef<SaveManager | null>(null);
 
-  // Lazily initialise the engine once
+  // Lazily initialise the engine and save manager once
   if (!engineRef.current) {
     engineRef.current = new GameEngine();
   }
+  if (!saveRef.current) {
+    saveRef.current = new SaveManager(loadSaveData(), persistSaveData);
+  }
   const engine = engineRef.current;
+  const save = saveRef.current;
 
   // ── Reactive state ───────────────────────────────────────────────────────
   const [phase, setPhase] = useState<GamePhase>(engine.getPhase());
@@ -64,6 +92,7 @@ export function useGame(): UseGameReturn {
   const [ending, setEnding] = useState<EndingType | null>(engine.getEnding());
   const [sideEffects, setSideEffects] = useState<SideEffect[]>([]);
   const [isNewGamePlus, setIsNewGamePlus] = useState(false);
+  const [hasWonOnce, setHasWonOnce] = useState(save.hasWonOnce());
 
   // ── Sync helper: pull all state from engine ──────────────────────────────
   const syncState = useCallback(() => {
@@ -99,9 +128,16 @@ export function useGame(): UseGameReturn {
           syncState();
           break;
 
-        case 'gameEnded':
+        case 'gameEnded': {
           syncState();
+          const charId = engine.getCharacterId();
+          const endType = engine.getEnding();
+          if (charId && endType) {
+            save.recordGame(charId, endType, { ...engine.getStats() });
+            setHasWonOnce(save.hasWonOnce());
+          }
           break;
+        }
 
         case 'restart':
         case 'newGamePlus':
@@ -163,6 +199,7 @@ export function useGame(): UseGameReturn {
     characterId,
     ending,
     isNewGamePlus,
+    hasWonOnce,
     selectCharacter,
     processInput,
     restart,

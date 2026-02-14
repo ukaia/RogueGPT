@@ -116,6 +116,21 @@ export interface GameEvent {
 
 export type GameEventListener = (event: GameEvent) => void;
 
+// ── Persistence ─────────────────────────────────────────────────────────────
+
+export interface CharacterRecord {
+  bestEnding: EndingType | null;
+  bestStats: GameStats | null;
+  gamesPlayed: number;
+}
+
+export interface SaveData {
+  version: number;
+  hasWonOnce: boolean;
+  totalGamesPlayed: number;
+  characters: Record<CharacterId, CharacterRecord>;
+}
+
 // ── Constants ───────────────────────────────────────────────────────────────
 
 export const GAME_DURATION_MS = 5 * 60 * 1000;         // 5 minutes

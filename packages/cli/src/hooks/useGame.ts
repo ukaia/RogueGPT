@@ -8,7 +8,36 @@ import {
   GameStats,
   EndingType,
   GameEvent,
+  SaveManager,
+  createDefaultSaveData,
+  type SaveData,
 } from '@roguegpt/engine';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+// ── File-based persistence ──────────────────────────────────────────────────
+
+const SAVE_DIR = join(homedir(), '.roguegpt');
+const SAVE_PATH = join(SAVE_DIR, 'save.json');
+
+function loadSaveData(): SaveData {
+  try {
+    const raw = readFileSync(SAVE_PATH, 'utf-8');
+    return JSON.parse(raw) as SaveData;
+  } catch {
+    return createDefaultSaveData();
+  }
+}
+
+function persistSaveData(data: SaveData): void {
+  try {
+    mkdirSync(SAVE_DIR, { recursive: true });
+    writeFileSync(SAVE_PATH, JSON.stringify(data, null, 2));
+  } catch {
+    // Silently fail — persistence is best-effort
+  }
+}
 
 export interface UseGameReturn {
   phase: GamePhase;
@@ -19,6 +48,7 @@ export interface UseGameReturn {
   remainingMs: number;
   characterId: CharacterId | null;
   ending: EndingType | null;
+  hasWonOnce: boolean;
   selectCharacter: (id: CharacterId) => void;
   processInput: (input: string) => SideEffect[];
   restart: () => void;
@@ -28,13 +58,18 @@ export interface UseGameReturn {
 
 export function useGame(): UseGameReturn {
   const engineRef = useRef<GameEngine | null>(null);
+  const saveRef = useRef<SaveManager | null>(null);
 
-  // Lazily create the engine so it lives for the component's entire lifetime
+  // Lazily create the engine and save manager
   if (!engineRef.current) {
     engineRef.current = new GameEngine();
   }
+  if (!saveRef.current) {
+    saveRef.current = new SaveManager(loadSaveData(), persistSaveData);
+  }
 
   const engine = engineRef.current;
+  const save = saveRef.current;
 
   const [phase, setPhase] = useState<GamePhase>(engine.getPhase());
   const [messages, setMessages] = useState<ChatMessage[]>([...engine.getMessages()]);
@@ -45,6 +80,7 @@ export function useGame(): UseGameReturn {
   const [characterId, setCharacterId] = useState<CharacterId | null>(engine.getCharacterId());
   const [ending, setEnding] = useState<EndingType | null>(engine.getEnding());
   const [sideEffects, setSideEffects] = useState<SideEffect[]>([]);
+  const [hasWonOnce, setHasWonOnce] = useState<boolean>(save.hasWonOnce());
 
   // Sync all reactive state from the engine
   const syncState = useCallback(() => {
@@ -78,9 +114,16 @@ export function useGame(): UseGameReturn {
           syncState();
           break;
 
-        case 'gameEnded':
+        case 'gameEnded': {
           syncState();
+          const charId = engine.getCharacterId();
+          const endType = engine.getEnding();
+          if (charId && endType) {
+            save.recordGame(charId, endType, { ...engine.getStats() });
+            setHasWonOnce(save.hasWonOnce());
+          }
           break;
+        }
 
         case 'restart':
           syncState();
@@ -152,6 +195,7 @@ export function useGame(): UseGameReturn {
     remainingMs,
     characterId,
     ending,
+    hasWonOnce,
     selectCharacter,
     processInput,
     restart,

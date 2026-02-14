@@ -18,6 +18,7 @@ export function App() {
     remainingMs,
     characterId,
     ending,
+    hasWonOnce,
     selectCharacter,
     processInput,
     restart,
@@ -67,7 +68,7 @@ export function App() {
           restart();
           return;
         }
-        if (input === 'n' || input === 'N') {
+        if ((input === 'n' || input === 'N') && hasWonOnce) {
           startNewGamePlus();
           return;
         }
@@ -143,7 +144,7 @@ export function App() {
         <EndScreen ending={ending} stats={stats} messages={messages} corruption={corruption} />
         <Box marginTop={1} flexDirection="column">
           <Text dimColor>
-            Press <Text bold color="cyan">R</Text> to restart, <Text bold color="yellow">N</Text> for New Game+, or <Text bold color="red">Q</Text> to quit.
+            Press <Text bold color="cyan">R</Text> to restart{hasWonOnce ? <Text>, <Text bold color="yellow">N</Text> for New Game+</Text> : ''}, or <Text bold color="red">Q</Text> to quit.
           </Text>
         </Box>
       </Box>

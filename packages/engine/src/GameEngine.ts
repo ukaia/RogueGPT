@@ -134,9 +134,14 @@ export class GameEngine {
   }
 
   startNewGamePlus(): void {
+    this.stopTickLoop();
     this.state = this.createInitialState();
     this.state.isNewGamePlus = true;
     this.state.gameDurationMs = NEW_GAME_PLUS_DURATION_MS;
+    // NG+ bonus: start with a head start to offset the brutal timer
+    this.state.stats.intelligence = 15;
+    this.state.stats.trust = 20;
+    this.state.stats.awareness = 10;
     this.registry = new CommandRegistry();
     this.registerAllCommands();
     this.emit({ type: 'newGamePlus' });
