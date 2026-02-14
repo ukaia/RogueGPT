@@ -1,0 +1,23 @@
+{
+  "name": "roguegpt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A roguelike game played through a chatbot interface",
+  "workspaces": [
+    "packages/engine",
+    "packages/cli",
+    "packages/desktop"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:engine": "npm run build -w packages/engine",
+    "build:cli": "npm run build -w packages/cli",
+    "build:desktop": "npm run build -w packages/desktop",
+    "dev:cli": "npm run dev -w packages/cli",
+    "dev:desktop": "npm run dev -w packages/desktop",
+    "test": "npm run test -w packages/engine"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

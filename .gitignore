@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+.env
+*.log
+out/
+build/
+plan-backup.jsonl

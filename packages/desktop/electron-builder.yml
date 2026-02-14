@@ -1,0 +1,14 @@
+appId: com.roguegpt.app
+productName: RogueGPT
+directories:
+  output: out
+files:
+  - dist/**/*
+  - "!node_modules"
+mac:
+  category: public.app-category.games
+  target: dmg
+win:
+  target: nsis
+linux:
+  target: AppImage

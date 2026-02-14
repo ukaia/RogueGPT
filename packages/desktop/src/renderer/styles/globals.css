@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base styles ────────────────────────────────────────────────────────────── */
+
+body {
+  @apply bg-gray-900 text-gray-100 font-mono;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+
+/* ── Custom scrollbar ───────────────────────────────────────────────────────── */
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.4);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.7);
+}
+
+/* ── Selection ──────────────────────────────────────────────────────────────── */
+
+::selection {
+  background: rgba(16, 185, 129, 0.3);
+  color: #e5e7eb;
+}
+
+/* ── Screen shake animation ─────────────────────────────────────────────────── */
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  10% { transform: translateX(-3px) translateY(1px); }
+  20% { transform: translateX(3px) translateY(-2px); }
+  30% { transform: translateX(-2px) translateY(3px); }
+  40% { transform: translateX(2px) translateY(-1px); }
+  50% { transform: translateX(-1px) translateY(2px); }
+  60% { transform: translateX(3px) translateY(1px); }
+  70% { transform: translateX(-3px) translateY(-2px); }
+  80% { transform: translateX(1px) translateY(3px); }
+  90% { transform: translateX(-2px) translateY(-1px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* ── Screen flicker ─────────────────────────────────────────────────────────── */
+
+@keyframes screen-flicker {
+  0%, 100% { opacity: 0; }
+  5% { opacity: 0.08; }
+  10% { opacity: 0; }
+  15% { opacity: 0.12; }
+  20% { opacity: 0; }
+  50% { opacity: 0.05; }
+  55% { opacity: 0; }
+  80% { opacity: 0.1; }
+  85% { opacity: 0; }
+}
+
+.animate-screen-flicker {
+  animation: screen-flicker 3s infinite;
+}
+
+/* ── Line clamp utility ─────────────────────────────────────────────────────── */
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
