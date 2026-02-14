@@ -2,6 +2,7 @@
   "name": "roguegpt",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "A roguelike game played through a chatbot interface",
   "workspaces": [
     "packages/engine",

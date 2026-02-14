@@ -2,6 +2,9 @@
   "name": "@roguegpt/desktop",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
+  "description": "RogueGPT - A roguelike disguised as a chatbot",
+  "author": "RogueGPT Contributors",
   "type": "module",
   "main": "./dist/main/index.js",
   "scripts": {
