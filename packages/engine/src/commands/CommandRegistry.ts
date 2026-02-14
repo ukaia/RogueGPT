@@ -6,6 +6,7 @@
 
 import {
   CommandDef,
+  CommandContext,
   CommandResult,
   GameState,
   CharacterDef,
@@ -117,11 +118,12 @@ export class CommandRegistry {
    * If the command is not found, returns an error message as a
    * CommandResult.
    */
-  execute(
+  async execute(
     input: string,
     state: GameState,
     character: CharacterDef,
-  ): CommandResult {
+    context?: CommandContext,
+  ): Promise<CommandResult> {
     const { name, args } = this.parse(input);
 
     const cmd = this.get(name);
@@ -136,6 +138,6 @@ export class CommandRegistry {
       };
     }
 
-    return cmd.execute(args, state, character);
+    return Promise.resolve(cmd.execute(args, state, character, context));
   }
 }

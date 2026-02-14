@@ -42,4 +42,9 @@ export { CommandRegistry, createAIMessage, createSystemMessage, createPlayerMess
 
 // ── Persistence ─────────────────────────────────────────────────────────────
 export { SaveManager, createDefaultSaveData } from './persistence/SaveManager.js';
-export type { SaveData, CharacterRecord } from './types.js';
+export type { SaveData, CharacterRecord, CommandContext } from './types.js';
+
+// ── LLM ────────────────────────────────────────────────────────────────────
+export type { LLMProvider } from './llm/LLMProvider.js';
+export { buildSystemPrompt } from './llm/SystemPromptBuilder.js';
+export { extractStats } from './llm/StatExtractor.js';

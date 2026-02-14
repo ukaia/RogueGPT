@@ -101,12 +101,16 @@ export type SideEffect =
   | { type: 'screenShake'; duration: number }
   | { type: 'endGame'; ending: EndingType };
 
+export interface CommandContext {
+  llmProvider?: import('./llm/LLMProvider.js').LLMProvider;
+}
+
 export interface CommandDef {
   name: string;
   description: string;
   hidden: boolean;
   usage: string;
-  execute: (args: string, state: GameState, character: CharacterDef) => CommandResult;
+  execute: (args: string, state: GameState, character: CharacterDef, context?: CommandContext) => CommandResult | Promise<CommandResult>;
 }
 
 export interface GameEvent {

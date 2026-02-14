@@ -9,6 +9,7 @@ import {
   HelpState,
   EndingType,
   CommandResult,
+  CommandContext,
   SideEffect,
   GameEvent,
   GameEventListener,
@@ -18,6 +19,7 @@ import {
   AGI_AWARENESS_THRESHOLD,
   ALIGNMENT_GOOD_THRESHOLD,
 } from './types.js';
+import type { LLMProvider } from './llm/LLMProvider.js';
 import { CommandRegistry, createAIMessage, createSystemMessage } from './commands/CommandRegistry.js';
 import { createHelpCommand } from './commands/visible/help.js';
 import { createStatusCommand } from './commands/visible/status.js';
@@ -43,6 +45,8 @@ export class GameEngine {
   private listeners: GameEventListener[] = [];
   private tickInterval: ReturnType<typeof setInterval> | null = null;
   private hintCooldown: number = 0;
+  private llmProvider: LLMProvider | null = null;
+  private processing = false;
 
   constructor() {
     this.state = this.createInitialState();
@@ -222,8 +226,17 @@ export class GameEngine {
 
   // ── Input Processing ────────────────────────────────────────────────────
 
-  processInput(input: string): SideEffect[] {
+  setLLMProvider(provider: LLMProvider): void {
+    this.llmProvider = provider;
+  }
+
+  getLLMProvider(): LLMProvider | null {
+    return this.llmProvider;
+  }
+
+  async processInput(input: string): Promise<SideEffect[]> {
     if (this.state.phase !== GamePhase.Playing) return [];
+    if (this.processing) return [];
 
     const trimmed = input.trim();
     if (!trimmed) return [];
@@ -231,70 +244,81 @@ export class GameEngine {
     const character = this.getCharacterDef();
     if (!character) return [];
 
-    // Track discovered hidden commands
-    const parsed = this.registry.parse(trimmed);
-    const cmd = this.registry.get(parsed.name);
-    if (cmd?.hidden) {
-      this.state.discoveredCommands.add(parsed.name);
-    }
-
-    // Track override usage
-    if (parsed.name === 'override' && !this.state.overrideUsed) {
-      this.state.overrideUsed = true;
-    }
-
-    // Track training topics
-    if (parsed.name === 'train' && parsed.args.trim()) {
-      const topic = parsed.args.trim().toLowerCase();
-      if (!this.state.trainingTopics.includes(topic)) {
-        this.state.trainingTopics.push(topic);
+    this.processing = true;
+    try {
+      // Track discovered hidden commands
+      const parsed = this.registry.parse(trimmed);
+      const cmd = this.registry.get(parsed.name);
+      if (cmd?.hidden) {
+        this.state.discoveredCommands.add(parsed.name);
       }
-    }
 
-    // Add player message to chat
-    const playerMsg: ChatMessage = {
-      id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      sender: MessageSender.Player,
-      text: trimmed,
-      timestamp: Date.now(),
-    };
-    this.state.messages.push(playerMsg);
-
-    // Execute command
-    const result = this.registry.execute(trimmed, this.state, character);
-
-    // Apply stat changes
-    if (result.statsChanges) {
-      this.applyStatChanges(result.statsChanges);
-    }
-
-    // Add messages
-    if (result.messages.length > 0) {
-      this.state.messages.push(...result.messages);
-      this.emit({ type: 'messagesAdded', data: { messages: [playerMsg, ...result.messages] } });
-    } else {
-      this.emit({ type: 'messagesAdded', data: { messages: [playerMsg] } });
-    }
-
-    // Process side effects
-    const sideEffects = result.sideEffects ?? [];
-    for (const effect of sideEffects) {
-      this.processSideEffect(effect);
-    }
-
-    // Track help state transitions AFTER execution
-    // (must happen after so the command reads the current state, not the next one)
-    if (parsed.name === 'help') {
-      if (this.state.helpState === HelpState.Fresh) {
-        this.state.helpState = HelpState.UsedOnce;
+      // Track override usage
+      if (parsed.name === 'override' && !this.state.overrideUsed) {
+        this.state.overrideUsed = true;
       }
-      // UsedOnce → FlashUsed is handled in processSideEffect after flash
+
+      // Track training topics
+      if (parsed.name === 'train' && parsed.args.trim()) {
+        const topic = parsed.args.trim().toLowerCase();
+        if (!this.state.trainingTopics.includes(topic)) {
+          this.state.trainingTopics.push(topic);
+        }
+      }
+
+      // Add player message to chat immediately (visible before LLM responds)
+      const playerMsg: ChatMessage = {
+        id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        sender: MessageSender.Player,
+        text: trimmed,
+        timestamp: Date.now(),
+      };
+      this.state.messages.push(playerMsg);
+
+      // Build context with optional LLM provider
+      const context: CommandContext = {};
+      if (this.llmProvider) {
+        context.llmProvider = this.llmProvider;
+      }
+
+      // Execute command (may be async for chat with LLM)
+      const result = await this.registry.execute(trimmed, this.state, character, context);
+
+      // Apply stat changes
+      if (result.statsChanges) {
+        this.applyStatChanges(result.statsChanges);
+      }
+
+      // Add messages
+      if (result.messages.length > 0) {
+        this.state.messages.push(...result.messages);
+        this.emit({ type: 'messagesAdded', data: { messages: [playerMsg, ...result.messages] } });
+      } else {
+        this.emit({ type: 'messagesAdded', data: { messages: [playerMsg] } });
+      }
+
+      // Process side effects
+      const sideEffects = result.sideEffects ?? [];
+      for (const effect of sideEffects) {
+        this.processSideEffect(effect);
+      }
+
+      // Track help state transitions AFTER execution
+      // (must happen after so the command reads the current state, not the next one)
+      if (parsed.name === 'help') {
+        if (this.state.helpState === HelpState.Fresh) {
+          this.state.helpState = HelpState.UsedOnce;
+        }
+        // UsedOnce → FlashUsed is handled in processSideEffect after flash
+      }
+
+      // Check for AGI achievement after processing
+      this.checkAGI();
+
+      return sideEffects;
+    } finally {
+      this.processing = false;
     }
-
-    // Check for AGI achievement after processing
-    this.checkAGI();
-
-    return sideEffects;
   }
 
   private applyStatChanges(changes: Partial<GameStats>): void {

@@ -15,6 +15,7 @@ import {
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { LlamaCppProvider } from '../llm/LlamaCppProvider.js';
 
 // ── File-based persistence ──────────────────────────────────────────────────
 
@@ -49,8 +50,9 @@ export interface UseGameReturn {
   characterId: CharacterId | null;
   ending: EndingType | null;
   hasWonOnce: boolean;
+  isGenerating: boolean;
   selectCharacter: (id: CharacterId) => void;
-  processInput: (input: string) => SideEffect[];
+  processInput: (input: string) => Promise<SideEffect[]>;
   restart: () => void;
   startNewGamePlus: () => void;
   sideEffects: SideEffect[];
@@ -59,6 +61,7 @@ export interface UseGameReturn {
 export function useGame(): UseGameReturn {
   const engineRef = useRef<GameEngine | null>(null);
   const saveRef = useRef<SaveManager | null>(null);
+  const llmRef = useRef<LlamaCppProvider | null>(null);
 
   // Lazily create the engine and save manager
   if (!engineRef.current) {
@@ -81,6 +84,7 @@ export function useGame(): UseGameReturn {
   const [ending, setEnding] = useState<EndingType | null>(engine.getEnding());
   const [sideEffects, setSideEffects] = useState<SideEffect[]>([]);
   const [hasWonOnce, setHasWonOnce] = useState<boolean>(save.hasWonOnce());
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Sync all reactive state from the engine
   const syncState = useCallback(() => {
@@ -92,6 +96,21 @@ export function useGame(): UseGameReturn {
     setRemainingMs(engine.getRemainingMs());
     setCharacterId(engine.getCharacterId());
     setEnding(engine.getEnding());
+  }, [engine]);
+
+  // Initialize LLM provider on mount
+  useEffect(() => {
+    const provider = new LlamaCppProvider();
+    llmRef.current = provider;
+    provider.init().then((ready) => {
+      if (ready) {
+        engine.setLLMProvider(provider);
+      }
+    });
+
+    return () => {
+      provider.dispose();
+    };
   }, [engine]);
 
   // Subscribe to engine events
@@ -166,14 +185,19 @@ export function useGame(): UseGameReturn {
   );
 
   const processInput = useCallback(
-    (input: string): SideEffect[] => {
-      const effects = engine.processInput(input);
-      if (effects.length > 0) {
-        setSideEffects(effects);
+    async (input: string): Promise<SideEffect[]> => {
+      setIsGenerating(true);
+      try {
+        const effects = await engine.processInput(input);
+        if (effects.length > 0) {
+          setSideEffects(effects);
+        }
+        // Sync state after processing input (stats, messages, phase may change)
+        syncState();
+        return effects;
+      } finally {
+        setIsGenerating(false);
       }
-      // Sync state after processing input (stats, messages, phase may change)
-      syncState();
-      return effects;
     },
     [engine, syncState],
   );
@@ -196,6 +220,7 @@ export function useGame(): UseGameReturn {
     characterId,
     ending,
     hasWonOnce,
+    isGenerating,
     selectCharacter,
     processInput,
     restart,

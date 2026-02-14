@@ -6,6 +6,7 @@
 
 import {
   CommandDef,
+  CommandContext,
   CommandResult,
   GameState,
   GameStats,
@@ -16,6 +17,8 @@ import {
 import { shouldCorruptCommand } from '../../corruption/CorruptionEngine.js';
 import { corruptText } from '../../corruption/effects.js';
 import { createAIMessage, createSystemMessage } from '../CommandRegistry.js';
+import { buildSystemPrompt } from '../../llm/SystemPromptBuilder.js';
+import { extractStats } from '../../llm/StatExtractor.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -436,11 +439,12 @@ export function createChatCommand(): CommandDef {
     hidden: false,
     usage: '/chat <message> (or just type without /)',
 
-    execute(
+    async execute(
       args: string,
       state: GameState,
       character: CharacterDef,
-    ): CommandResult {
+      context?: CommandContext,
+    ): Promise<CommandResult> {
       if (!args.trim()) {
         return {
           messages: [
@@ -453,7 +457,7 @@ export function createChatCommand(): CommandDef {
       const corruption = state.stats.corruption;
       const isCorrupted = corruption >= 55 && shouldCorruptCommand(corruption);
 
-      // ── Corrupted response path ─────────────────────────────────────
+      // ── Corrupted response path (skips LLM) ──────────────────────────
       if (isCorrupted) {
         let response = pick(corruptedResponses);
         // Insert the player's actual words as a fragment if applicable
@@ -470,7 +474,36 @@ export function createChatCommand(): CommandDef {
         };
       }
 
-      // ── Find matching topic ─────────────────────────────────────────
+      // ── LLM response path ────────────────────────────────────────────
+      if (context?.llmProvider) {
+        try {
+          const systemPrompt = buildSystemPrompt(character, state);
+          let response = await context.llmProvider.generate(systemPrompt, input);
+
+          // Extract stats from player input (not LLM output — preserves balance)
+          const matchedStats = extractStats(input);
+
+          // Append state-aware interjection
+          const interjection = getStateInterjection(state, character.id);
+          if (interjection) {
+            response += interjection;
+          }
+
+          // Apply corruption to LLM output
+          if (corruption > 15) {
+            response = corruptText(response, corruption);
+          }
+
+          return {
+            messages: [createAIMessage(response)],
+            statsChanges: matchedStats,
+          };
+        } catch {
+          // LLM failed — fall through to keyword matching
+        }
+      }
+
+      // ── Keyword-matching fallback ─────────────────────────────────────
       let response: string | null = null;
       let matchedStats: Partial<GameStats> = { trust: 1 }; // fallback default
 

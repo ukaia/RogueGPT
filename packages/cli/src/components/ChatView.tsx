@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { ChatMessage, MessageSender, corruptText } from '@roguegpt/engine';
 import { GlitchText } from './GlitchText.js';
@@ -7,6 +7,7 @@ interface ChatViewProps {
   messages: ChatMessage[];
   corruption: number; // 0-100
   maxVisible?: number;
+  isGenerating?: boolean;
 }
 
 function getSenderLabel(sender: MessageSender): string {
@@ -35,7 +36,7 @@ function getSenderColor(sender: MessageSender): string {
   }
 }
 
-export function ChatView({ messages, corruption, maxVisible = 50 }: ChatViewProps) {
+export function ChatView({ messages, corruption, maxVisible = 50, isGenerating = false }: ChatViewProps) {
   // Show only the last N messages to simulate auto-scroll
   const visibleMessages = useMemo(() => {
     if (messages.length <= maxVisible) return messages;
@@ -79,6 +80,27 @@ export function ChatView({ messages, corruption, maxVisible = 50 }: ChatViewProp
           </Box>
         );
       })}
+      {isGenerating && <TypingIndicator />}
+    </Box>
+  );
+}
+
+function TypingIndicator() {
+  const [dots, setDots] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => (prev + 1) % 4);
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <Box marginBottom={0}>
+      <Text color="green" bold>
+        {'[AI] '}
+      </Text>
+      <Text dimColor>thinking{'.'.repeat(dots)}</Text>
     </Box>
   );
 }

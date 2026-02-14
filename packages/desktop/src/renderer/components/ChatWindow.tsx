@@ -5,16 +5,17 @@ import { ChatMessage } from './ChatMessage.js';
 interface ChatWindowProps {
   messages: ChatMessageType[];
   corruption: number;
+  isGenerating?: boolean;
 }
 
-export function ChatWindow({ messages, corruption }: ChatWindowProps): React.ReactElement {
+export function ChatWindow({ messages, corruption, isGenerating = false }: ChatWindowProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the bottom when new messages arrive
+  // Auto-scroll to the bottom when new messages arrive or when generating starts
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, [messages.length, isGenerating]);
 
   return (
     <div
@@ -38,6 +39,18 @@ export function ChatWindow({ messages, corruption }: ChatWindowProps): React.Rea
           corruption={corruption}
         />
       ))}
+
+      {/* Typing indicator */}
+      {isGenerating && (
+        <div className="flex items-start gap-2 px-2">
+          <span className="text-emerald-500 font-mono text-xs font-bold mt-0.5">[AI]</span>
+          <div className="flex items-center gap-1 py-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
+      )}
 
       {/* Scroll anchor */}
       <div ref={bottomRef} />

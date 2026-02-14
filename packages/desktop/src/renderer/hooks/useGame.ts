@@ -14,6 +14,7 @@ import {
   type SideEffect,
   type SaveData,
 } from '@roguegpt/engine';
+import { IPCProvider } from '../llm/IPCProvider.js';
 
 // ── localStorage-based persistence ──────────────────────────────────────────
 
@@ -54,11 +55,13 @@ export interface UseGameReturn {
   isNewGamePlus: boolean;
   /** Whether the player has achieved the good ending at least once */
   hasWonOnce: boolean;
+  /** Whether the LLM is currently generating a response */
+  isGenerating: boolean;
 
   /** Select a character and begin playing */
   selectCharacter: (id: CharacterId) => void;
   /** Send player input and receive side effects */
-  processInput: (input: string) => SideEffect[];
+  processInput: (input: string) => Promise<SideEffect[]>;
   /** Restart the game from scratch */
   restart: () => void;
   /** Begin a New Game+ run */
@@ -93,6 +96,7 @@ export function useGame(): UseGameReturn {
   const [sideEffects, setSideEffects] = useState<SideEffect[]>([]);
   const [isNewGamePlus, setIsNewGamePlus] = useState(false);
   const [hasWonOnce, setHasWonOnce] = useState(save.hasWonOnce());
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // ── Sync helper: pull all state from engine ──────────────────────────────
   const syncState = useCallback(() => {
@@ -107,6 +111,16 @@ export function useGame(): UseGameReturn {
     setCharacterId(e.getCharacterId());
     setEnding(e.getEnding());
   }, []);
+
+  // ── Initialize LLM provider via IPC bridge ────────────────────────────────
+  useEffect(() => {
+    const provider = new IPCProvider();
+    provider.isAvailable().then((available) => {
+      if (available) {
+        engine.setLLMProvider(provider);
+      }
+    });
+  }, [engine]);
 
   // ── Engine event listener ────────────────────────────────────────────────
   useEffect(() => {
@@ -168,11 +182,16 @@ export function useGame(): UseGameReturn {
     syncState();
   }, [engine, syncState]);
 
-  const processInput = useCallback((input: string): SideEffect[] => {
-    const effects = engine.processInput(input);
-    setSideEffects(effects);
-    syncState();
-    return effects;
+  const processInput = useCallback(async (input: string): Promise<SideEffect[]> => {
+    setIsGenerating(true);
+    try {
+      const effects = await engine.processInput(input);
+      setSideEffects(effects);
+      syncState();
+      return effects;
+    } finally {
+      setIsGenerating(false);
+    }
   }, [engine, syncState]);
 
   const restart = useCallback(() => {
@@ -200,6 +219,7 @@ export function useGame(): UseGameReturn {
     ending,
     isNewGamePlus,
     hasWonOnce,
+    isGenerating,
     selectCharacter,
     processInput,
     restart,

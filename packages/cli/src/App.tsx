@@ -19,6 +19,7 @@ export function App() {
     characterId,
     ending,
     hasWonOnce,
+    isGenerating,
     selectCharacter,
     processInput,
     restart,
@@ -90,8 +91,8 @@ export function App() {
   );
 
   const handleInput = useCallback(
-    (value: string) => {
-      processInput(value);
+    async (value: string) => {
+      await processInput(value);
     },
     [processInput],
   );
@@ -184,8 +185,8 @@ export function App() {
           />
         ) : (
           <>
-            <ChatView messages={messages} corruption={corruption} />
-            <InputBar onSubmit={handleInput} />
+            <ChatView messages={messages} corruption={corruption} isGenerating={isGenerating} />
+            <InputBar onSubmit={handleInput} disabled={isGenerating} />
           </>
         )}
       </Box>

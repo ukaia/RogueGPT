@@ -5,6 +5,11 @@ directories:
 files:
   - dist/**/*
   - "!node_modules"
+extraResources:
+  - from: "../../models"
+    to: "models"
+    filter:
+      - "*.gguf"
 mac:
   category: public.app-category.games
   target: dmg

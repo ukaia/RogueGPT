@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { initLLM, registerLLMHandlers, disposeLLM } from './llm.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,7 +40,11 @@ function createWindow(): void {
 
 // ── App Lifecycle ──────────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Initialize LLM in the main process
+  registerLLMHandlers();
+  await initLLM();
+
   createWindow();
 
   app.on('activate', () => {
@@ -51,6 +56,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  disposeLLM();
   // On macOS, apps usually stay active until the user quits explicitly
   if (process.platform !== 'darwin') {
     app.quit();

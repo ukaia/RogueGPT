@@ -7,3 +7,4 @@ dist/
 out/
 build/
 plan-backup.jsonl
+models/

@@ -48,8 +48,8 @@ export function App(): React.ReactElement {
   }, []);
 
   // ── Input handling ─────────────────────────────────────────────────────
-  const handleInput = useCallback((input: string) => {
-    const effects = game.processInput(input);
+  const handleInput = useCallback(async (input: string) => {
+    const effects = await game.processInput(input);
     handleSideEffects(effects);
   }, [game, handleSideEffects]);
 
@@ -140,10 +140,11 @@ export function App(): React.ReactElement {
             <ChatWindow
               messages={game.messages}
               corruption={game.corruption}
+              isGenerating={game.isGenerating}
             />
             <InputBar
               onSubmit={handleInput}
-              disabled={game.phase !== GamePhase.Playing}
+              disabled={game.phase !== GamePhase.Playing || game.isGenerating}
             />
           </div>
 
