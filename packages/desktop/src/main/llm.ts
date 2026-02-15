@@ -57,6 +57,7 @@ export function registerLLMHandlers(): void {
         temperature: 0.8,
       });
       session.dispose();
+      contextSequence.dispose();
       return response.trim();
     } catch (err) {
       console.error('[LLM] Generation failed:', err);

@@ -68,6 +68,7 @@ export class LlamaCppProvider implements LLMProvider {
       return response.trim();
     } finally {
       session.dispose();
+      contextSequence.dispose();
     }
   }
 
