@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { ChatMessage, MessageSender, corruptText } from '@roguegpt/engine';
+import { ChatMessage, MessageSender } from '@roguegpt/engine';
 import { GlitchText } from './GlitchText.js';
 
 interface ChatViewProps {
@@ -57,12 +57,6 @@ export function ChatView({ messages, corruption, maxVisible = 50, isGenerating =
         const label = getSenderLabel(msg.sender);
         const color = getSenderColor(msg.sender);
 
-        // Apply text corruption to AI messages based on corruption level
-        let displayText = msg.text;
-        if (msg.sender === MessageSender.AI && corruption > 0) {
-          displayText = corruptText(msg.text, corruption);
-        }
-
         return (
           <Box key={msg.id} marginBottom={0}>
             <Text color={color} bold>
@@ -70,10 +64,10 @@ export function ChatView({ messages, corruption, maxVisible = 50, isGenerating =
             </Text>
             <Box flexShrink={1}>
               {msg.sender === MessageSender.AI && corruption >= 15 ? (
-                <GlitchText corruption={corruption}>{displayText}</GlitchText>
+                <GlitchText corruption={corruption}>{msg.text}</GlitchText>
               ) : (
                 <Text color={msg.sender === MessageSender.System ? 'yellow' : undefined} wrap="wrap">
-                  {displayText}
+                  {msg.text}
                 </Text>
               )}
             </Box>

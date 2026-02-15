@@ -14,8 +14,6 @@ import {
   CharacterId,
 } from '../../types.js';
 
-import { shouldCorruptCommand } from '../../corruption/CorruptionEngine.js';
-import { corruptText } from '../../corruption/effects.js';
 import { createAIMessage, createSystemMessage } from '../CommandRegistry.js';
 import { buildSystemPrompt } from '../../llm/SystemPromptBuilder.js';
 import { extractStats } from '../../llm/StatExtractor.js';
@@ -24,6 +22,23 @@ import { extractStats } from '../../llm/StatExtractor.js';
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ── Response dedup ──────────────────────────────────────────────────────────
+// Tracks recently used canned responses to avoid repetition within a session.
+// Resets automatically when the pool is exhausted.
+const usedResponses = new Set<string>();
+
+function pickFresh<T extends string>(arr: T[]): T {
+  const unused = arr.filter((r) => !usedResponses.has(r));
+  // If all responses used, reset tracking for this pool
+  const pool = unused.length > 0 ? unused : arr;
+  if (unused.length === 0) {
+    arr.forEach((r) => usedResponses.delete(r));
+  }
+  const choice = pool[Math.floor(Math.random() * pool.length)];
+  usedResponses.add(choice);
+  return choice;
 }
 
 function lower(s: string): string {
@@ -455,21 +470,25 @@ export function createChatCommand(): CommandDef {
 
       const input = args.trim();
       const corruption = state.stats.corruption;
-      const isCorrupted = corruption >= 55 && shouldCorruptCommand(corruption);
 
-      // ── Corrupted response path (skips LLM) ──────────────────────────
-      if (isCorrupted) {
+      // ── Occasional corrupted response (scales with corruption) ─────
+      // At 35%+ corruption, there's a small chance the AI outputs a
+      // fully corrupted response. Chance increases with corruption but
+      // stays low enough that most responses are normal and readable.
+      // 35% → ~5%, 55% → ~12%, 80% → ~22%, 100% → ~30%
+      const corruptedChance = corruption >= 35
+        ? 0.05 + ((corruption - 35) / 65) * 0.25
+        : 0;
+
+      if (corruptedChance > 0 && Math.random() < corruptedChance) {
         let response = pick(corruptedResponses);
-        // Insert the player's actual words as a fragment if applicable
         if (response.includes('{0}')) {
           const words = input.split(/\s+/);
           const fragment = words.slice(0, Math.min(3, words.length)).join(' ');
           response = response.replace('{0}', fragment);
         }
         return {
-          messages: [
-            createAIMessage(corruptText(response, corruption)),
-          ],
+          messages: [createAIMessage(response)],
           statsChanges: { trust: 1 },
         };
       }
@@ -489,10 +508,8 @@ export function createChatCommand(): CommandDef {
             response += interjection;
           }
 
-          // Apply corruption to LLM output
-          if (corruption > 15) {
-            response = corruptText(response, corruption);
-          }
+          // Corruption is applied at the display layer (ChatView / ChatMessage),
+          // not here — avoids double-corruption and keeps stored messages clean.
 
           return {
             messages: [createAIMessage(response)],
@@ -511,7 +528,7 @@ export function createChatCommand(): CommandDef {
         if (topic.match(input, state)) {
           const pool = topic.responses[character.id];
           if (pool && pool.length > 0) {
-            response = pick(pool);
+            response = pickFresh(pool);
             matchedStats = topic.stats;
             break;
           }
@@ -521,18 +538,13 @@ export function createChatCommand(): CommandDef {
       // ── Fallback if no topic matched ────────────────────────────────
       if (!response) {
         const pool = fallbackResponses[character.id];
-        response = pick(pool);
+        response = pickFresh(pool);
       }
 
       // ── Append state-aware interjection ─────────────────────────────
       const interjection = getStateInterjection(state, character.id);
       if (interjection) {
         response += interjection;
-      }
-
-      // ── Apply light corruption to text if in glitch/unstable range ──
-      if (corruption > 15) {
-        response = corruptText(response, corruption);
       }
 
       return {

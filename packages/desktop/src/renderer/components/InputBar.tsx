@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 interface InputBarProps {
   onSubmit: (input: string) => void;
@@ -9,13 +9,19 @@ export function InputBar({ onSubmit, disabled = false }: InputBarProps): React.R
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Re-focus the input whenever it becomes enabled again
+  useEffect(() => {
+    if (!disabled) {
+      inputRef.current?.focus();
+    }
+  }, [disabled]);
+
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed || disabled) return;
 
     onSubmit(trimmed);
     setValue('');
-    inputRef.current?.focus();
   }, [value, disabled, onSubmit]);
 
   const handleKeyDown = useCallback(

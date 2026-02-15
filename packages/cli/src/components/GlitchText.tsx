@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Text } from 'ink';
 
 interface GlitchTextProps {
@@ -24,59 +24,69 @@ function pickRandom<T>(arr: readonly T[]): T {
 }
 
 /**
- * GlitchText renders text with visual corruption effects using Ink's
- * Text component properties. At low corruption the text is rendered
- * normally. As corruption rises the text gains color shifts, dimming,
- * inverse sections, and at critical levels full rainbow cycling.
+ * GlitchText renders text with occasional brief flicker effects.
+ * Text is normally displayed clean. At random intervals (based on corruption),
+ * a short flicker occurs (150-300ms) applying color tints, then returns to normal.
+ * Flickers become more frequent at higher corruption, but text is always readable.
  */
 export function GlitchText({ children, corruption }: GlitchTextProps) {
-  const [tick, setTick] = useState(0);
+  const [isFlickering, setIsFlickering] = useState(false);
+  const [flickerColor, setFlickerColor] = useState<InkColor | undefined>(undefined);
+  const [flickerDim, setFlickerDim] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Re-render periodically at higher corruption to create flicker
   useEffect(() => {
     if (corruption < 15) return;
 
-    // Tick faster as corruption increases
-    const interval = Math.max(100, 800 - corruption * 6);
-    const timer = setInterval(() => {
-      setTick((t) => t + 1);
-    }, interval);
+    function scheduleFlicker() {
+      // Time between flickers: shorter at higher corruption
+      // corruption 15 → 8-15s, corruption 50 → 3-6s, corruption 80+ → 1-3s
+      const minDelay = Math.max(1000, 8000 - corruption * 80);
+      const maxDelay = Math.max(2000, 15000 - corruption * 130);
+      const delay = minDelay + Math.random() * (maxDelay - minDelay);
 
-    return () => clearInterval(timer);
+      timerRef.current = setTimeout(() => {
+        // Start flicker: apply a random color tint
+        setFlickerColor(pickRandom(GLITCH_COLORS));
+        setFlickerDim(corruption > 40 && Math.random() < 0.3);
+        setIsFlickering(true);
+
+        // End flicker after a brief moment (150-300ms)
+        const flickerDuration = 150 + Math.random() * 150;
+        timerRef.current = setTimeout(() => {
+          setIsFlickering(false);
+          setFlickerColor(undefined);
+          setFlickerDim(false);
+          // Schedule next flicker
+          scheduleFlicker();
+        }, flickerDuration);
+      }, delay);
+    }
+
+    scheduleFlicker();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [corruption]);
 
-  // Normal: no effects
-  if (corruption < 15) {
+  // No effects at low corruption
+  if (corruption < 15 || !isFlickering) {
     return <Text>{children}</Text>;
   }
 
-  // Glitch (15-35): occasional color tint on the whole text
-  if (corruption < 35) {
-    const shouldTint = Math.random() < 0.3;
-    const tintColor: InkColor | undefined = shouldTint ? pickRandom(GLITCH_COLORS) : undefined;
-    const shouldDim = Math.random() < 0.15;
-
-    return (
-      <Text color={tintColor} dimColor={shouldDim}>
-        {children}
-      </Text>
-    );
-  }
-
-  // Unstable (35-55): per-word color changes, occasional inverse
-  if (corruption < 55) {
+  // During a flicker: apply tint to the whole message briefly
+  // At higher corruption, occasionally tint individual words instead
+  if (corruption >= 50 && Math.random() < 0.4) {
     const words = children.split(/(\s+)/);
     return (
       <Text>
         {words.map((word, i) => {
           if (/^\s+$/.test(word)) return <Text key={i}>{word}</Text>;
-
-          const color: InkColor = Math.random() < 0.4 ? pickRandom(GLITCH_COLORS) : 'green';
-          const inverse = Math.random() < 0.1;
-          const dim = Math.random() < 0.2;
-
+          // Randomly tint some words during the flicker
+          const wordColor: InkColor | undefined =
+            Math.random() < 0.3 ? pickRandom(GLITCH_COLORS) : undefined;
           return (
-            <Text key={i} color={color} inverse={inverse} dimColor={dim}>
+            <Text key={i} color={wordColor} dimColor={flickerDim && Math.random() < 0.2}>
               {word}
             </Text>
           );
@@ -85,61 +95,10 @@ export function GlitchText({ children, corruption }: GlitchTextProps) {
     );
   }
 
-  // Corrupted (55-80): heavy per-character color, frequent inverse
-  if (corruption < 80) {
-    const chars = children.split('');
-    return (
-      <Text>
-        {chars.map((ch, i) => {
-          if (ch === ' ') return <Text key={i}> </Text>;
-
-          const color: InkColor = Math.random() < 0.6 ? pickRandom(GLITCH_COLORS) : 'green';
-          const inverse = Math.random() < 0.2;
-          const bold = Math.random() < 0.3;
-          const dim = Math.random() < 0.15;
-
-          return (
-            <Text
-              key={i}
-              color={color}
-              inverse={inverse}
-              bold={bold}
-              dimColor={dim}
-            >
-              {ch}
-            </Text>
-          );
-        })}
-      </Text>
-    );
-  }
-
-  // Critical (80-100): full rainbow cycling, heavy inverse, blinking feel
-  const chars = children.split('');
+  // Simple whole-message tint flicker
   return (
-    <Text>
-      {chars.map((ch, i) => {
-        if (ch === ' ') return <Text key={i}> </Text>;
-
-        // Cycle through colors based on position and tick for animation
-        const colorIndex = (i + tick) % GLITCH_COLORS.length;
-        const color = GLITCH_COLORS[colorIndex];
-        const inverse = Math.random() < 0.35;
-        const bold = Math.random() < 0.5;
-        const dim = Math.random() < 0.2;
-
-        return (
-          <Text
-            key={i}
-            color={color}
-            inverse={inverse}
-            bold={bold}
-            dimColor={dim}
-          >
-            {ch}
-          </Text>
-        );
-      })}
+    <Text color={flickerColor} dimColor={flickerDim}>
+      {children}
     </Text>
   );
 }

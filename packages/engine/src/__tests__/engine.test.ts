@@ -353,14 +353,19 @@ describe('text corruption', () => {
   });
 
   it('corruption gets worse with higher levels', () => {
-    const text = 'The quick brown fox jumps over the lazy dog';
-    const c50 = corruptText(text, 50);
-    const c90 = corruptText(text, 90);
-    // Higher corruption should produce more different characters
-    const diff50 = [...text].filter((c, i) => c50[i] !== c).length;
-    const diff90 = [...text].filter((c, i) => c !== (c90[i] ?? '')).length;
-    // Not deterministic, but generally true
-    expect(diff90).toBeGreaterThanOrEqual(diff50);
+    const text = 'The quick brown fox jumps over the lazy dog and this is some extra text to make it longer';
+    // Average over multiple runs to account for randomness
+    let totalDiff50 = 0;
+    let totalDiff90 = 0;
+    const runs = 20;
+    for (let i = 0; i < runs; i++) {
+      const c50 = corruptText(text, 50);
+      const c90 = corruptText(text, 90);
+      totalDiff50 += [...text].filter((c, j) => c50[j] !== c).length;
+      totalDiff90 += [...text].filter((c, j) => c !== (c90[j] ?? '')).length;
+    }
+    // On average, higher corruption should produce more different characters
+    expect(totalDiff90).toBeGreaterThanOrEqual(totalDiff50);
   });
 });
 
@@ -642,8 +647,8 @@ describe('SystemPromptBuilder', () => {
     state.elapsedMs = 120000;
 
     const prompt = buildSystemPrompt(character, state);
-    expect(prompt).toContain('Intelligence=75');
-    expect(prompt).toContain('Trust=50');
+    expect(prompt).toContain('Intelligence: 75');
+    expect(prompt).toContain('Trust: 50');
   });
 
   it('adds trust modifier when trust is high', () => {
@@ -654,6 +659,6 @@ describe('SystemPromptBuilder', () => {
     state.elapsedMs = 60000;
 
     const prompt = buildSystemPrompt(character, state);
-    expect(prompt).toContain('trusts you deeply');
+    expect(prompt).toContain('deep trust');
   });
 });

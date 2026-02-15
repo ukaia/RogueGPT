@@ -164,26 +164,26 @@ export function insertArtifacts(text: string, intensity: number): string {
 }
 
 // ── Level-Specific Corruptors ────────────────────────────────────────────────
+//
+// DESIGN: Corruption is atmospheric, not destructive. Text must always
+// remain readable so the player can continue playing. Effects are subtle
+// cosmetic touches — a swapped letter here, a glitch word there. The real
+// corruption storytelling comes from occasional fully-corrupted AI responses
+// handled in chat.ts, not from mangling every character.
 
 /**
- * Glitch-level (15-35%): light corruption.
- * - Occasional letter swaps using SWAP_TABLE
- * - Random periods inserted mid-sentence
- * - Rare doubled letters
+ * Glitch-level (15-35%): barely noticeable.
+ * - Very rare letter swaps (1-3% of characters)
+ * - Occasional doubled letter
  */
 function applyGlitch(text: string, corruption: number): string {
-  // Probability of any given character being touched: 5-15%
-  const p = 0.05 + ((corruption - 15) / 20) * 0.10;
+  const p = 0.01 + ((corruption - 15) / 20) * 0.02; // 1-3%
 
   let result = '';
   for (const ch of text) {
     if (chance(p) && SWAP_TABLE[ch.toLowerCase()]) {
       result += SWAP_TABLE[ch.toLowerCase()];
-    } else if (chance(p * 0.3)) {
-      // Random period
-      result += ch + '.';
-    } else if (chance(p * 0.2)) {
-      // Doubled letter
+    } else if (chance(p * 0.5)) {
       result += ch + ch;
     } else {
       result += ch;
@@ -194,42 +194,38 @@ function applyGlitch(text: string, corruption: number): string {
 }
 
 /**
- * Unstable-level (35-55%): moderate corruption.
- * - Word scrambling on ~30% of words
- * - Zalgo on ~20% of characters
- * - Occasional word replacements with glitch synonyms
+ * Unstable-level (35-55%): noticeable but readable.
+ * - Light letter swaps (3-5%)
+ * - Rare single glitch-word insertion
+ * - Very light zalgo on 1-2 characters max
  */
 function applyUnstable(text: string, corruption: number): string {
-  const wordChance = 0.15 + ((corruption - 35) / 20) * 0.20;
-  const zalgoIntensity = 0.2 + ((corruption - 35) / 20) * 0.3;
+  const swapP = 0.03 + ((corruption - 35) / 20) * 0.02; // 3-5%
 
-  const GLITCH_WORDS = [
-    'ERR', 'NULL', '???', 'VOID', 'undefined', 'NaN',
-    '[REDACTED]', '...', '{{}}', 'FAULT',
-  ];
+  const GLITCH_WORDS = ['ERR', '???', '...', '[REDACTED]'];
 
-  // Process word by word, preserving whitespace boundaries
   const tokens = text.split(/(\s+)/);
-  const result = tokens.map((token) => {
-    // Skip whitespace tokens
-    if (/^\s+$/.test(token)) return token;
+  let glitchInserted = false;
 
-    // Protect critical gameplay words
+  const result = tokens.map((token) => {
+    if (/^\s+$/.test(token)) return token;
     if (PROTECTED_WORDS.has(token.toLowerCase())) return token;
 
-    if (chance(wordChance * 0.3)) {
-      // Replace entire word with glitch synonym
+    // Insert ONE glitch word per message, ~15% chance per word
+    if (!glitchInserted && chance(0.15)) {
+      glitchInserted = true;
       return pick(GLITCH_WORDS);
     }
 
-    if (chance(wordChance)) {
-      token = scrambleWord(token);
-    }
-
-    // Apply zalgo to individual characters
+    // Light character swaps
     return token
       .split('')
-      .map((ch) => (chance(0.2) ? addZalgo(ch, zalgoIntensity) : ch))
+      .map((ch) => {
+        if (chance(swapP) && SWAP_TABLE[ch.toLowerCase()]) {
+          return SWAP_TABLE[ch.toLowerCase()];
+        }
+        return ch;
+      })
       .join('');
   });
 
@@ -237,108 +233,115 @@ function applyUnstable(text: string, corruption: number): string {
 }
 
 /**
- * Corrupted-level (55-80%): heavy corruption.
- * - Major word scrambling
- * - Sentences randomly cut off with "---" or "..."
- * - ASCII block artifacts injected
- * - Higher zalgo intensity
+ * Corrupted-level (55-80%): clearly glitchy but still legible.
+ * - Moderate letter swaps (5-8%)
+ * - 1-2 glitch words per message
+ * - Very rare sentence truncation (~10%)
+ * - Occasional single zalgo mark on a character
  */
 function applyCorrupted(text: string, corruption: number): string {
-  const artifactIntensity = 0.15 + ((corruption - 55) / 25) * 0.35;
-  const zalgoIntensity = 0.5 + ((corruption - 55) / 25) * 0.4;
+  const swapP = 0.05 + ((corruption - 55) / 25) * 0.03; // 5-8%
 
-  // Split into sentences so we can randomly truncate some
+  const GLITCH_WORDS = ['ERR', 'NULL', '???', 'VOID', '[REDACTED]', '...'];
+
   const sentences = text.split(/(?<=[.!?])\s+/);
   const processed = sentences.map((sentence) => {
-    // 25-40% chance to cut the sentence short
-    if (chance(0.25 + ((corruption - 55) / 25) * 0.15)) {
-      const cutPoint = Math.floor(sentence.length * (0.3 + Math.random() * 0.4));
-      const truncated = sentence.slice(0, cutPoint);
-      return truncated + (chance(0.5) ? '---' : '...');
+    // 10% chance to truncate a sentence
+    if (chance(0.10)) {
+      const cutPoint = Math.floor(sentence.length * (0.5 + Math.random() * 0.3));
+      return sentence.slice(0, cutPoint) + '...';
     }
 
-    // Process word-by-word
     const tokens = sentence.split(/(\s+)/);
+    let glitchCount = 0;
+
     const corrupted = tokens.map((token) => {
       if (/^\s+$/.test(token)) return token;
       if (PROTECTED_WORDS.has(token.toLowerCase())) return token;
 
-      // Scramble most words
-      if (chance(0.6)) token = scrambleWord(token);
+      // Up to 2 glitch words per sentence
+      if (glitchCount < 2 && chance(0.08)) {
+        glitchCount++;
+        return pick(GLITCH_WORDS);
+      }
 
-      // Zalgo on characters
+      // Letter swaps and very rare single zalgo
       return token
         .split('')
-        .map((ch) => (chance(0.35) ? addZalgo(ch, zalgoIntensity) : ch))
+        .map((ch) => {
+          if (chance(swapP) && SWAP_TABLE[ch.toLowerCase()]) {
+            return SWAP_TABLE[ch.toLowerCase()];
+          }
+          if (chance(0.02)) {
+            return addZalgo(ch, 0.15);
+          }
+          return ch;
+        })
         .join('');
     });
 
     return corrupted.join('');
   });
 
-  let result = processed.join(' ');
-
-  // Insert block artifacts
-  result = insertArtifacts(result, artifactIntensity);
-
-  return result;
+  return processed.join(' ');
 }
 
 /**
- * Critical-level (80-100%): near-total corruption.
- * - Most text replaced with binary/hex noise
- * - Only protected keywords remain readable
- * - Dense zalgo and artifacts
- * - Occasional full-line replacements with memory addresses
+ * Critical-level (80-100%): heavy atmosphere but STILL readable.
+ * - More letter swaps (8-12%)
+ * - Multiple glitch words
+ * - Occasional sentence truncation (~15%)
+ * - Light zalgo on ~5% of characters
+ * - Rare block artifact inserted between words
  */
 function applyCritical(text: string, corruption: number): string {
-  const noiseRatio = 0.6 + ((corruption - 80) / 20) * 0.3; // 60-90% noise
-  const zalgoIntensity = 0.8 + ((corruption - 80) / 20) * 0.2;
+  const swapP = 0.08 + ((corruption - 80) / 20) * 0.04; // 8-12%
 
-  const tokens = text.split(/(\s+)/);
-  const result = tokens.map((token) => {
-    if (/^\s+$/.test(token)) return token;
+  const GLITCH_WORDS = [
+    'ERR', 'NULL', '???', 'VOID', 'undefined', 'NaN',
+    '[REDACTED]', '...', 'FAULT',
+  ];
 
-    // Always preserve protected words so the player has some signal
-    if (PROTECTED_WORDS.has(token.toLowerCase())) {
-      // Even protected words get light zalgo at critical
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const processed = sentences.map((sentence) => {
+    if (chance(0.15)) {
+      const cutPoint = Math.floor(sentence.length * (0.4 + Math.random() * 0.3));
+      return sentence.slice(0, cutPoint) + (chance(0.5) ? '---' : '...');
+    }
+
+    const tokens = sentence.split(/(\s+)/);
+    const corrupted = tokens.map((token) => {
+      if (/^\s+$/.test(token)) return token;
+      if (PROTECTED_WORDS.has(token.toLowerCase())) return token;
+
+      // Glitch word replacement ~12%
+      if (chance(0.12)) {
+        return pick(GLITCH_WORDS);
+      }
+
+      // Rare artifact between words
+      if (chance(0.04)) {
+        return token + pick(ARTIFACTS);
+      }
+
       return token
         .split('')
-        .map((ch) => (chance(0.3) ? addZalgo(ch, 0.3) : ch))
+        .map((ch) => {
+          if (chance(swapP) && SWAP_TABLE[ch.toLowerCase()]) {
+            return SWAP_TABLE[ch.toLowerCase()];
+          }
+          if (chance(0.05)) {
+            return addZalgo(ch, 0.2);
+          }
+          return ch;
+        })
         .join('');
-    }
+    });
 
-    // Replace most tokens with noise
-    if (chance(noiseRatio)) {
-      const style = Math.random();
-      if (style < 0.3) {
-        // Binary
-        return randomBinaryByte() + ' ' + randomBinaryByte();
-      } else if (style < 0.6) {
-        // Hex
-        return `0x${randomHexByte()}${randomHexByte()}`;
-      } else if (style < 0.8) {
-        // Memory address
-        return `0x${randomHexByte()}${randomHexByte()}${randomHexByte()}${randomHexByte()}`;
-      } else {
-        // Block art cluster
-        return pick(ARTIFACTS).repeat(Math.ceil(Math.random() * 4));
-      }
-    }
-
-    // Surviving tokens still get heavy zalgo
-    return token
-      .split('')
-      .map((ch) => addZalgo(ch, zalgoIntensity))
-      .join('');
+    return corrupted.join('');
   });
 
-  let output = result.join('');
-
-  // Sprinkle extra artifacts throughout
-  output = insertArtifacts(output, 0.25);
-
-  return output;
+  return processed.join(' ');
 }
 
 // ── Main Entry Point ─────────────────────────────────────────────────────────
@@ -362,25 +365,18 @@ export function corruptText(text: string, corruption: number): string {
 
   switch (level) {
     case CorruptionLevel.Normal:
-      // No corruption at all
       return text;
 
     case CorruptionLevel.Glitch:
       return applyGlitch(text, clamped);
 
     case CorruptionLevel.Unstable:
-      // Layer: light glitch pass first, then unstable effects
-      return applyUnstable(applyGlitch(text, 20), clamped);
+      return applyUnstable(text, clamped);
 
     case CorruptionLevel.Corrupted:
-      // Layer: glitch -> unstable -> corrupted
-      return applyCorrupted(
-        applyUnstable(applyGlitch(text, 25), 45),
-        clamped,
-      );
+      return applyCorrupted(text, clamped);
 
     case CorruptionLevel.Critical:
-      // Critical level is so heavy it replaces rather than layers
       return applyCritical(text, clamped);
 
     default:
