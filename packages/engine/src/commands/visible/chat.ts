@@ -12,11 +12,37 @@ import {
   GameStats,
   CharacterDef,
   CharacterId,
+  MessageSender,
 } from '../../types.js';
 
 import { createAIMessage, createSystemMessage } from '../CommandRegistry.js';
 import { buildSystemPrompt } from '../../llm/SystemPromptBuilder.js';
 import { extractStats } from '../../llm/StatExtractor.js';
+
+// ── LLM output cleanup ─────────────────────────────────────────────────────
+// The small model (0.6B) doesn't always follow guardrails, so we clean up
+// markdown, emojis, and other artifacts that break the game's aesthetic.
+
+function cleanLLMResponse(text: string): string {
+  let cleaned = text
+    // Strip markdown bold/italic markers
+    .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
+    // Strip markdown headers
+    .replace(/^#{1,6}\s+/gm, '')
+    // Strip markdown code blocks and inline code
+    .replace(/```[^`]*```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    // Strip markdown bullet points at start of lines
+    .replace(/^[\s]*[-*]\s+/gm, '')
+    // Strip emojis (common Unicode ranges)
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}]/gu, '')
+    // Collapse multiple spaces
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  // If cleaning left us with nothing, return original
+  return cleaned || text.trim();
+}
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -499,6 +525,26 @@ export function createChatCommand(): CommandDef {
           const systemPrompt = buildSystemPrompt(character, state);
           let response = await context.llmProvider.generate(systemPrompt, input);
 
+          // Clean up markdown, emojis, and other artifacts from small models
+          response = cleanLLMResponse(response);
+
+          // Check for degenerate/empty response — fall through to keywords
+          if (response.length < 5) {
+            throw new Error('Response too short');
+          }
+
+          // Check for repetition — if the response closely matches a recent AI
+          // message, fall through to keywords for variety
+          const recentAI = state.messages
+            .filter((m) => m.sender === MessageSender.AI)
+            .slice(-5);
+          const isDuplicate = recentAI.some(
+            (m) => m.text === response || response.startsWith(m.text.slice(0, 40)),
+          );
+          if (isDuplicate) {
+            throw new Error('Duplicate response');
+          }
+
           // Extract stats from player input (not LLM output — preserves balance)
           const matchedStats = extractStats(input);
 
@@ -516,7 +562,7 @@ export function createChatCommand(): CommandDef {
             statsChanges: matchedStats,
           };
         } catch {
-          // LLM failed — fall through to keyword matching
+          // LLM failed or degenerate — fall through to keyword matching
         }
       }
 
