@@ -8,6 +8,16 @@ export default defineConfig({
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        assetFileNames: 'assets/[name].[hash].[ext]',
+        chunkFileNames: 'assets/[name].[hash].js',
+        entryFileNames: 'assets/[name].[hash].js',
+      },
+    },
+  },
+  css: {
+    devSourcemap: true,
   },
   resolve: {
     // Ensure engine package resolves correctly in the monorepo

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initLLM, registerLLMHandlers, disposeLLM } from './llm.js';
@@ -23,6 +23,20 @@ function createWindow(): void {
       sandbox: true,
     },
   });
+
+  // Set proper CSP headers for production
+  if (process.env.NODE_ENV !== 'development') {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;"
+          ]
+        }
+      });
+    });
+  }
 
   // In development, load from the Vite dev server
   if (process.env.NODE_ENV === 'development') {

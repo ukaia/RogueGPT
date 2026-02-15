@@ -25,6 +25,7 @@ function getModelPath(): string {
 
 export async function initLLM(): Promise<void> {
   const modelPath = getModelPath();
+  console.log('[LLM] Checking for model at', modelPath);
   if (!existsSync(modelPath)) {
     console.log('[LLM] Model not found at', modelPath, '— running without LLM');
     return;
@@ -44,10 +45,21 @@ export async function initLLM(): Promise<void> {
 }
 
 export function registerLLMHandlers(): void {
-  ipcMain.handle('llm:available', () => ready);
+  console.log('[LLM] Registering IPC handlers');
+  ipcMain.handle('llm:available', () => {
+    console.log('[LLM] IPC handler llm:available called, ready:', ready);
+    return ready;
+  });
 
   ipcMain.handle('llm:generate', async (_event, systemPrompt: string, userMessage: string): Promise<string | null> => {
-    if (!ready || !context || !model) return null;
+    console.log('[LLM] IPC handler llm:generate called');
+    console.log('[LLM] System prompt:', systemPrompt);
+    console.log('[LLM] User message:', userMessage);
+
+    if (!ready || !context || !model) {
+      console.log('[LLM] Not ready for generation - ready:', ready, 'context:', !!context, 'model:', !!model);
+      return null;
+    }
 
     try {
       const contextSequence = context.getSequence();
@@ -58,6 +70,7 @@ export function registerLLMHandlers(): void {
       });
       session.dispose();
       contextSequence.dispose();
+      console.log('[LLM] Generated response:', response);
       return response.trim();
     } catch (err) {
       console.error('[LLM] Generation failed:', err);

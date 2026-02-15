@@ -114,12 +114,24 @@ export function useGame(): UseGameReturn {
 
   // ── Initialize LLM provider via IPC bridge ────────────────────────────────
   useEffect(() => {
-    const provider = new IPCProvider();
-    provider.isAvailable().then((available) => {
-      if (available) {
-        engine.setLLMProvider(provider);
+    const initializeLLM = async () => {
+      try {
+        const provider = new IPCProvider();
+        console.log('[useGame] Checking LLM availability...');
+        const available = await provider.isAvailable();
+        console.log('[useGame] LLM available:', available);
+        if (available) {
+          engine.setLLMProvider(provider);
+          console.log('[useGame] LLM provider set successfully');
+        } else {
+          console.log('[useGame] LLM not available, falling back to keyword matching');
+        }
+      } catch (error) {
+        console.error('[useGame] Error initializing LLM provider:', error);
       }
-    });
+    };
+
+    initializeLLM();
   }, [engine]);
 
   // ── Engine event listener ────────────────────────────────────────────────
