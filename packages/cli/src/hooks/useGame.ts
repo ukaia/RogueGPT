@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { LlamaCppProvider } from '../llm/LlamaCppProvider.js';
+import { GameSettings, loadSettings, saveSettings, DEFAULT_SETTINGS } from './settings.js';
 
 // ── File-based persistence ──────────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ export interface UseGameReturn {
   ending: EndingType | null;
   hasWonOnce: boolean;
   isGenerating: boolean;
+  settings: GameSettings;
+  updateSettings: (newSettings: Partial<GameSettings>) => void;
   selectCharacter: (id: CharacterId) => void;
   processInput: (input: string) => Promise<SideEffect[]>;
   restart: () => void;
@@ -62,6 +65,7 @@ export function useGame(): UseGameReturn {
   const engineRef = useRef<GameEngine | null>(null);
   const saveRef = useRef<SaveManager | null>(null);
   const llmRef = useRef<LlamaCppProvider | null>(null);
+  const settingsRef = useRef<GameSettings>(loadSettings());
 
   // Lazily create the engine and save manager
   if (!engineRef.current) {
@@ -73,6 +77,7 @@ export function useGame(): UseGameReturn {
 
   const engine = engineRef.current;
   const save = saveRef.current;
+  const settings = settingsRef.current;
 
   const [phase, setPhase] = useState<GamePhase>(engine.getPhase());
   const [messages, setMessages] = useState<ChatMessage[]>([...engine.getMessages()]);
@@ -177,6 +182,12 @@ export function useGame(): UseGameReturn {
     };
   }, [engine]);
 
+  const updateSettings = useCallback((newSettings: Partial<GameSettings>) => {
+    const updatedSettings = { ...settingsRef.current, ...newSettings };
+    settingsRef.current = updatedSettings;
+    saveSettings(updatedSettings);
+  }, []);
+
   const selectCharacter = useCallback(
     (id: CharacterId) => {
       engine.selectCharacter(id);
@@ -221,6 +232,8 @@ export function useGame(): UseGameReturn {
     ending,
     hasWonOnce,
     isGenerating,
+    settings,
+    updateSettings,
     selectCharacter,
     processInput,
     restart,

@@ -8,6 +8,7 @@ interface StatusBarProps {
   corruption: number;
   stats: GameStats;
   visible?: boolean;
+  showCorruption?: boolean;
 }
 
 function formatTime(ms: number): string {
@@ -56,6 +57,7 @@ export function StatusBar({
   corruption,
   stats,
   visible = true,
+  showCorruption = true,
 }: StatusBarProps) {
   if (!visible) return null;
 
@@ -84,16 +86,18 @@ export function StatusBar({
         <Text dimColor> left)</Text>
       </Box>
 
-      <Box>
-        <Text dimColor>Corruption: </Text>
-        <Text color={corruptionColor} bold>
-          {Math.floor(corruption)}%
-        </Text>
-        <Text> </Text>
-        <Text color={corruptionColor} bold={corruption >= 55}>
-          [{corruptionLabel}]
-        </Text>
-      </Box>
+      {showCorruption && (
+        <Box>
+          <Text dimColor>Corruption: </Text>
+          <Text color={corruptionColor} bold>
+            {Math.floor(corruption)}%
+          </Text>
+          <Text> </Text>
+          <Text color={corruptionColor} bold={corruption >= 55}>
+            [{corruptionLabel}]
+          </Text>
+        </Box>
+      )}
 
       <Box>
         <Text dimColor>INT:</Text>

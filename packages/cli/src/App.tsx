@@ -20,6 +20,8 @@ export function App() {
     ending,
     hasWonOnce,
     isGenerating,
+    settings,
+    updateSettings,
     selectCharacter,
     processInput,
     restart,
@@ -30,7 +32,6 @@ export function App() {
   const { exit } = useApp();
 
   const [showSettings, setShowSettings] = useState(false);
-  const [showTimer, setShowTimer] = useState(true);
   const [flashActive, setFlashActive] = useState(false);
   const [screenShake, setScreenShake] = useState(false);
   const processedEffectsRef = useRef<SideEffect[] | null>(null);
@@ -98,8 +99,12 @@ export function App() {
   );
 
   const handleToggleTimer = useCallback(() => {
-    setShowTimer((prev) => !prev);
-  }, []);
+    updateSettings({ showTimer: !settings.showTimer });
+  }, [settings.showTimer, updateSettings]);
+
+  const handleToggleCorruption = useCallback(() => {
+    updateSettings({ showCorruption: !settings.showCorruption });
+  }, [settings.showCorruption, updateSettings]);
 
   const handleNewGamePlus = useCallback(() => {
     setShowSettings(false);
@@ -170,14 +175,17 @@ export function App() {
         remainingMs={remainingMs}
         corruption={corruption}
         stats={stats}
-        visible={showTimer}
+        visible={settings.showTimer}
+        showCorruption={settings.showCorruption}
       />
 
       <Box flexDirection="column" flexGrow={1}>
         {showSettings ? (
           <SettingsMenu
-            showTimer={showTimer}
+            showTimer={settings.showTimer}
+            showCorruption={settings.showCorruption}
             onToggleTimer={handleToggleTimer}
+            onToggleCorruption={handleToggleCorruption}
             onNewGamePlus={handleNewGamePlus}
             onRestart={handleRestart}
             onQuit={handleQuit}

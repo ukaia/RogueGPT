@@ -3,7 +3,9 @@ import { Box, Text, useInput } from 'ink';
 
 interface SettingsMenuProps {
   showTimer: boolean;
+  showCorruption: boolean;
   onToggleTimer: () => void;
+  onToggleCorruption: () => void;
   onNewGamePlus: () => void;
   onRestart: () => void;
   onQuit: () => void;
@@ -17,7 +19,9 @@ interface MenuItem {
 
 export function SettingsMenu({
   showTimer,
+  showCorruption,
   onToggleTimer,
+  onToggleCorruption,
   onNewGamePlus,
   onRestart,
   onQuit,
@@ -27,6 +31,10 @@ export function SettingsMenu({
     {
       label: showTimer ? 'Hide Timer & Stats Bar' : 'Show Timer & Stats Bar',
       action: onToggleTimer,
+    },
+    {
+      label: showCorruption ? 'Hide Corruption Effects' : 'Show Corruption Effects',
+      action: onToggleCorruption,
     },
     { label: 'New Game+', action: onNewGamePlus },
     { label: 'Restart Game', action: onRestart },
