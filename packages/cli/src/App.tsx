@@ -102,10 +102,6 @@ export function App() {
     updateSettings({ showTimer: !settings.showTimer });
   }, [settings.showTimer, updateSettings]);
 
-  const handleToggleCorruption = useCallback(() => {
-    updateSettings({ showCorruption: !settings.showCorruption });
-  }, [settings.showCorruption, updateSettings]);
-
   const handleNewGamePlus = useCallback(() => {
     setShowSettings(false);
     startNewGamePlus();
@@ -175,17 +171,15 @@ export function App() {
         remainingMs={remainingMs}
         corruption={corruption}
         stats={stats}
-        visible={settings.showTimer}
-        showCorruption={settings.showCorruption}
+        visible={true}
+        showTimerInfo={settings.showTimer}
       />
 
       <Box flexDirection="column" flexGrow={1}>
         {showSettings ? (
           <SettingsMenu
             showTimer={settings.showTimer}
-            showCorruption={settings.showCorruption}
             onToggleTimer={handleToggleTimer}
-            onToggleCorruption={handleToggleCorruption}
             onNewGamePlus={handleNewGamePlus}
             onRestart={handleRestart}
             onQuit={handleQuit}

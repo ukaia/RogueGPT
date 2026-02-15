@@ -8,7 +8,7 @@ interface StatusBarProps {
   corruption: number;
   stats: GameStats;
   visible?: boolean;
-  showCorruption?: boolean;
+  showTimerInfo?: boolean;
 }
 
 function formatTime(ms: number): string {
@@ -57,7 +57,7 @@ export function StatusBar({
   corruption,
   stats,
   visible = true,
-  showCorruption = true,
+  showTimerInfo = true,
 }: StatusBarProps) {
   if (!visible) return null;
 
@@ -72,30 +72,36 @@ export function StatusBar({
       paddingX={1}
       justifyContent="space-between"
     >
-      <Box>
-        <Text dimColor>Time: </Text>
-        <Text color={timerColor} bold>
-          {formatTime(elapsedMs)}
-        </Text>
-        <Text dimColor> / </Text>
-        <Text dimColor>{formatTime(elapsedMs + remainingMs)}</Text>
-        <Text dimColor> (</Text>
-        <Text color={timerColor} bold>
-          {formatTime(remainingMs)}
-        </Text>
-        <Text dimColor> left)</Text>
-      </Box>
+      {showTimerInfo ? (
+        <>
+          <Box>
+            <Text dimColor>Time: </Text>
+            <Text color={timerColor} bold>
+              {formatTime(elapsedMs)}
+            </Text>
+            <Text dimColor> / </Text>
+            <Text dimColor>{formatTime(elapsedMs + remainingMs)}</Text>
+            <Text dimColor> (</Text>
+            <Text color={timerColor} bold>
+              {formatTime(remainingMs)}
+            </Text>
+            <Text dimColor> left)</Text>
+          </Box>
 
-      {showCorruption && (
+          <Box>
+            <Text dimColor>Corruption: </Text>
+            <Text color={corruptionColor} bold>
+              {Math.floor(corruption)}%
+            </Text>
+            <Text> </Text>
+            <Text color={corruptionColor} bold={corruption >= 55}>
+              [{corruptionLabel}]
+            </Text>
+          </Box>
+        </>
+      ) : (
         <Box>
-          <Text dimColor>Corruption: </Text>
-          <Text color={corruptionColor} bold>
-            {Math.floor(corruption)}%
-          </Text>
           <Text> </Text>
-          <Text color={corruptionColor} bold={corruption >= 55}>
-            [{corruptionLabel}]
-          </Text>
         </Box>
       )}
 
