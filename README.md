@@ -1,3 +1,4 @@
+<img width="1112" height="761" alt="Screenshot 2026-02-14 at 9 17 35 PM" src="https://github.com/user-attachments/assets/708afc75-cb93-4644-b9a0-e7e83b845ea9" />
 # RogueGPT
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
